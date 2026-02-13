@@ -59,3 +59,8 @@ xcuserdata/
 iOSInjectionProject/
 .sisyphus/
 .DS_Store
+
+# Docs (keep README.md tracked)
+*.md
+*.txt
+!README.md
