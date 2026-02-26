@@ -1,5 +1,7 @@
 # EdgeSafariSync
 
+![Platform](https://img.shields.io/badge/platform-macOS%2013%2B-blue) ![Swift](https://img.shields.io/badge/Swift-5.9%2B-orange?logo=swift) ![UI](https://img.shields.io/badge/UI-SwiftUI-0A84FF) ![License](https://img.shields.io/badge/License-GPLv3-blue.svg) [![Release](https://img.shields.io/badge/release-v1.0.0-green)](../../releases)
+
 一个原生 macOS 菜单栏应用，用于在 Microsoft Edge 和 Safari 浏览器之间同步书签。
 
 ## 特性
