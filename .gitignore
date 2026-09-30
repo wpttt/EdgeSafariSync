@@ -6,6 +6,9 @@
 build/
 DerivedData/
 
+# But keep release DMG installers (so they can be downloaded directly via raw.githubusercontent.com if desired)
+!build/EdgeSafariSync_Installer_v*.dmg
+
 ## Various settings
 *.pbxuser
 !default.pbxuser
@@ -60,7 +63,8 @@ iOSInjectionProject/
 .sisyphus/
 .DS_Store
 
-# Docs (keep README.md tracked)
+# Docs (keep README.md and release notes tracked)
 *.md
 *.txt
 !README.md
+!RELEASE_NOTES_*.md
