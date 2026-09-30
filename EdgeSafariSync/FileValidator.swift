@@ -1,11 +1,14 @@
 import Foundation
+#if canImport(Darwin)
+import Darwin
+#endif
 
 // MARK: - Validation Error Enum
 
 /// Errors that can occur during file validation.
 enum ValidationError: LocalizedError {
     case fileNotFound(String)
-    case fileNotReadable(String)
+    case fileNotReadable(String, Int32) // (path, errno)
     case fileEmpty(String)
     
     var errorDescription: String? {
@@ -13,9 +16,9 @@ enum ValidationError: LocalizedError {
         case .fileNotFound(let path):
             let normalizedPath = normalizePathForDisplay(path)
             return "File not found at path: \(normalizedPath)"
-        case .fileNotReadable(let path):
+        case .fileNotReadable(let path, let errno):
             let normalizedPath = normalizePathForDisplay(path)
-            var message = "File is not readable at path: \(normalizedPath)"
+            var message = "File is not readable at path: \(normalizedPath) (errno=\(errno))"
             if normalizedPath.contains("/Library/Safari/Bookmarks.plist") {
                 message += "\nHint: Grant Full Disk Access to Xcode and EdgeSafariSync in System Settings > Privacy & Security > Full Disk Access."
                 message += "\nHint: If launched from Xcode, grant Xcode and EdgeSafariSync.app, then fully quit and relaunch."
@@ -67,10 +70,15 @@ func validateBookmarkFile(fileURL: URL) throws -> Bool {
         throw ValidationError.fileNotFound(filePath)
     }
     
-    // Check if file is readable
-    guard fileManager.isReadableFile(atPath: filePath) else {
-        throw ValidationError.fileNotReadable(filePath)
+    // Check if file is readable. Also do an actual open() syscall to catch permission errors
+    // that aren't surfaced by isReadableFile (e.g. extended attributes, ACL denials).
+    let fd = open(filePath, O_RDONLY)
+    if fd < 0 {
+        let errno = errno
+        close(fd)
+        throw ValidationError.fileNotReadable(filePath, errno)
     }
+    close(fd)
     
     // Check if file is non-empty
     do {

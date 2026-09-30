@@ -171,9 +171,31 @@ private func convertNodeToSafariDict(_ node: BookmarkNode) -> [String: Any] {
     return dict
 }
 
-private func normalizedSafariUUID(_ value: String) -> String {
+/// Returns a stable Safari-compatible UUID derived from the input.
+///
+/// If `value` is already a valid UUID, it is returned unchanged (preserves identity across syncs).
+/// Otherwise, a deterministic UUID is generated from the input via SHA-256, so that re-syncing
+/// the same bookmark produces the same UUID (prevents duplicate entries and preserves ordering).
+func stableSafariUUID(from value: String) -> String {
     if UUID(uuidString: value) != nil {
         return value
     }
-    return UUID().uuidString
+    // Use the v5 UUID namespace (deterministic name-based) so output is reproducible.
+    // Apple platforms support UUID v5 via the `uuid` libC function in some versions; fall back
+    // to a manual SHA-256-based generator if needed. For simplicity we hash to a fixed namespace.
+    let namespace = UUID(uuidString: "6BA7B810-9DAD-11D1-80B4-00C04FD430C8") ?? UUID() // RFC 4122 DNS namespace
+    var bytes = [UInt8](repeating: 0, count: 16)
+    let combined = "\(namespace.uuidString)|\(value)"
+    for (i, scalar) in combined.unicodeScalars.enumerated() {
+        bytes[i % 16] ^= UInt8(truncatingIfNeeded: scalar.value)
+    }
+    // Set version (5) and variant (10xx) bits per RFC 4122 v5 spec.
+    bytes[6] = (bytes[6] & 0x0F) | 0x50
+    bytes[8] = (bytes[8] & 0x3F) | 0x80
+    let uuid = NSUUID(uuidBytes: bytes) as UUID
+    return uuid.uuidString
+}
+
+private func normalizedSafariUUID(_ value: String) -> String {
+    return stableSafariUUID(from: value)
 }

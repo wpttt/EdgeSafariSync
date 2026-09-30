@@ -49,27 +49,53 @@ struct BackupManager {
     /// ```
     static func createBackup(fileURL: URL) throws -> URL {
         let fileManager = FileManager.default
-        
+
         // Verify source file exists
         guard fileManager.fileExists(atPath: fileURL.path) else {
             throw BackupError.sourceFileNotFound(fileURL)
         }
-        
-        // Build backup URL with .bak extension
-        var backupURL = fileURL.appendingPathExtension("bak")
-        
+
+        // Place backups in ~/Library/Application Support/EdgeSafariSync/backups/<source-filename>.bak[.timestamp]
+        // instead of next to the source file. This avoids:
+        //   (a) SIP/TCC restrictions on ~/Library/Safari/ and ~/Library/Application Support/Microsoft Edge/
+        //   (b) pollution of the user's bookmark directory
+        let backupDir = try backupDirectory()
+        let baseName = fileURL.lastPathComponent
+        var backupURL = backupDir.appendingPathComponent("\(baseName).bak")
+
         // If .bak already exists, create timestamped backup to preserve it
         if fileManager.fileExists(atPath: backupURL.path) {
             let timestamp = createTimestamp()
-            backupURL = fileURL.appendingPathExtension("bak.\(timestamp)")
+            backupURL = backupDir.appendingPathComponent("\(baseName).bak.\(timestamp)")
         }
-        
+
         do {
             try fileManager.copyItem(at: fileURL, to: backupURL)
             return backupURL
         } catch {
             throw BackupError.backupCreationFailed(error.localizedDescription)
         }
+    }
+
+    /// Returns (and creates if missing) the dedicated backup directory.
+    ///
+    /// `~/Library/Application Support/EdgeSafariSync/backups/` is not protected by SIP/TCC,
+    /// unlike `~/Library/Safari/`. The directory is created on demand on first use.
+    static func backupDirectory() throws -> URL {
+        let fm = FileManager.default
+        let appSupport = try fm.url(
+            for: .applicationSupportDirectory,
+            in: .userDomainMask,
+            appropriateFor: nil,
+            create: true
+        )
+        let dir = appSupport
+            .appendingPathComponent("EdgeSafariSync", isDirectory: true)
+            .appendingPathComponent("backups", isDirectory: true)
+        if !fm.fileExists(atPath: dir.path) {
+            try fm.createDirectory(at: dir, withIntermediateDirectories: true)
+        }
+        return dir
     }
     
     /// Restores a file from its backup copy.
